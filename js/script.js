@@ -26,8 +26,12 @@
   const sendBtn = document.getElementById('sendBtn');
   const chatScreen = document.getElementById('chatScreen');
   const cardOverlay = document.getElementById('cardOverlay');
-  const canvas = document.getElementById('inviteCanvas');
-  const ctx = canvas.getContext('2d');
+  const liveCanvas = document.getElementById('inviteCanvas');
+  // `canvas`/`ctx` are swapped to an offscreen 9:16 canvas while exporting a
+  // save (see layoutExportCanvas) so the on-screen popup can stay whatever
+  // shape the viewer's device is, while the saved file is always a story.
+  let canvas = liveCanvas;
+  let ctx = liveCanvas.getContext('2d');
   const saveImageBtn = document.getElementById('saveImageBtn');
   const saveVideoBtn = document.getElementById('saveVideoBtn');
   const videoProgress = document.getElementById('videoProgress');
@@ -114,8 +118,15 @@
   let W = 0, H = 0, DPR = 1;
   let POLA, PHOTO, CAPTION, CAMERA;
 
-  function computeLayout() {
-    const camW = clamp01Range(W * 0.42, 150, 260);
+  // 9:16 — every saved image/video is this size regardless of the viewer's
+  // own screen shape, so it drops straight into an Instagram/FB story.
+  const EXPORT_W = 1080, EXPORT_H = 1920;
+
+  function computeLayout(bottomReserve) {
+    // sized off the shorter side so the camera looks right whether this is
+    // a tall phone popup, a wide desktop popup, or the fixed 9:16 export
+    const shortSide = Math.min(W, H);
+    const camW = clamp01Range(shortSide * 0.42, 150, 460);
     const camH = camW * 0.42;
     CAMERA = {
       w: camW,
@@ -126,7 +137,6 @@
     CAMERA.slotY = CAMERA.y + CAMERA.h;
 
     const topMargin = CAMERA.slotY + Math.max(16, H * 0.02);
-    const bottomReserve = 148;
     const sideMargin = Math.max(20, W * 0.06);
     const availW = W - sideMargin * 2;
     const availH = H - topMargin - bottomReserve;
@@ -157,6 +167,8 @@
   function clamp01Range(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
   function layoutCanvas() {
+    canvas = liveCanvas;
+    ctx = liveCanvas.getContext('2d');
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = window.innerWidth;
     H = window.innerHeight;
@@ -165,7 +177,34 @@
     canvas.style.width = W + 'px';
     canvas.style.height = H + 'px';
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    computeLayout();
+    computeLayout(148); // reserve room for the fixed bottom action bar
+  }
+
+  // Resizing a canvas (even to the same dimensions) clears its pixels, so
+  // switching back from the export canvas needs a repaint, not just a
+  // layout call, or the popup goes blank.
+  function restoreLiveCanvas() {
+    layoutCanvas();
+    drawBase();
+    drawContent(1);
+  }
+
+  // Points the shared drawing state at a detached, invisible canvas for
+  // export — same drawBase/drawContent code, fixed 9:16 frame, no button
+  // bar to leave room for. Call layoutCanvas() again afterwards to restore
+  // the live popup.
+  function layoutExportCanvas() {
+    const target = document.createElement('canvas');
+    canvas = target;
+    ctx = target.getContext('2d');
+    DPR = 1;
+    W = EXPORT_W;
+    H = EXPORT_H;
+    target.width = W;
+    target.height = H;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    computeLayout(0);
+    return target;
   }
 
   function roundRectPath(c, x, y, w, h, r) {
@@ -489,59 +528,81 @@
 
   const REVEAL_MS = 4600;
 
-  function playReveal({ record = false } = {}) {
+  // drives the on-screen popup reveal (whatever shape the viewer's canvas
+  // currently is — always the live canvas, never the export one)
+  function playReveal() {
     return new Promise((resolve) => {
-      let recorder = null;
-      let chunks = [];
-      let mimeType = '';
-
-      if (record) {
-        const candidates = [
-          'video/mp4;codecs=h264',
-          'video/mp4',
-          'video/webm;codecs=vp9',
-          'video/webm;codecs=vp8',
-          'video/webm',
-        ];
-        mimeType = candidates.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
-        try {
-          const stream = canvas.captureStream(30);
-          recorder = mimeType
-            ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6_000_000 })
-            : new MediaRecorder(stream);
-          recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-          recorder.start();
-        } catch (err) {
-          recorder = null;
-        }
-      }
-
       let start = null;
-
       function frame(now) {
         if (start === null) start = now;
-        const elapsed = now - start;
-        const t = clamp01(elapsed / REVEAL_MS);
-
+        const t = clamp01((now - start) / REVEAL_MS);
         drawBase();
         drawContent(t);
-
         if (t < 1) {
           requestAnimationFrame(frame);
         } else {
           drawBase();
           drawContent(1);
-          if (recorder) {
-            setTimeout(() => {
-              recorder.onstop = () => {
-                const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
-                resolve({ blob, mimeType: mimeType || 'video/webm' });
-              };
-              recorder.stop();
-            }, 350);
-          } else {
-            resolve({});
-          }
+          resolve();
+        }
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  const EXPORT_MIME_CANDIDATES = [
+    'video/mp4;codecs=h264',
+    'video/mp4',
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ];
+
+  // replays the whole reveal a second time on an invisible 9:16 canvas so
+  // the saved video is always story-shaped, independent of the popup
+  function playExportReveal() {
+    return new Promise((resolve) => {
+      const target = layoutExportCanvas();
+
+      let recorder = null;
+      let chunks = [];
+      let mimeType = EXPORT_MIME_CANDIDATES.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+      try {
+        const stream = target.captureStream(30);
+        recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 })
+          : new MediaRecorder(stream);
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+        recorder.start();
+      } catch (err) {
+        recorder = null;
+      }
+
+      if (!recorder) {
+        restoreLiveCanvas();
+        resolve({});
+        return;
+      }
+
+      let start = null;
+      function frame(now) {
+        if (start === null) start = now;
+        const t = clamp01((now - start) / REVEAL_MS);
+        drawBase();
+        drawContent(t);
+        if (t < 1) {
+          requestAnimationFrame(frame);
+        } else {
+          drawBase();
+          drawContent(1);
+          setTimeout(() => {
+            recorder.onstop = () => {
+              const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
+              restoreLiveCanvas();
+              resolve({ blob, mimeType: mimeType || 'video/webm' });
+            };
+            recorder.stop();
+          }, 350);
         }
       }
       requestAnimationFrame(frame);
@@ -598,7 +659,7 @@
     saveImageBtn.disabled = true;
     saveVideoBtn.disabled = true;
     await assetsReady;
-    await playReveal({ record: false });
+    await playReveal();
     saveImageBtn.disabled = false;
     saveVideoBtn.disabled = false;
   }
@@ -616,11 +677,7 @@
   window.addEventListener('resize', () => {
     if (!modalOpen) return;
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      layoutCanvas();
-      drawBase();
-      drawContent(1);
-    }, 150);
+    resizeTimer = setTimeout(restoreLiveCanvas, 150);
   });
 
   nameForm.addEventListener('submit', async (e) => {
@@ -642,7 +699,13 @@
 
   saveImageBtn.addEventListener('click', () => {
     if (saveImageBtn.disabled) return;
-    canvas.toBlob((blob) => {
+    // render the settled frame onto the hidden 9:16 canvas so the saved
+    // image is story-shaped, not whatever shape the popup happens to be
+    const target = layoutExportCanvas();
+    drawBase();
+    drawContent(1);
+    target.toBlob((blob) => {
+      restoreLiveCanvas();
       if (!blob) return;
       saveBlob(blob, `OO-Polaroid-Invite-${safeFileSlug(window.__inviteName)}.png`, 'image/png');
     }, 'image/png');
@@ -676,7 +739,7 @@
     videoProgress.hidden = false;
     videoProgress.textContent = 'Recording...';
 
-    const { blob, mimeType } = await playReveal({ record: true });
+    const { blob, mimeType } = await playExportReveal();
 
     if (blob && blob.size) {
       pendingVideo = { blob, mimeType };
