@@ -129,8 +129,9 @@
     // sized off the shorter side so the camera looks right whether this is
     // a tall phone popup, a wide desktop popup, or the fixed 9:16 export
     const shortSide = Math.min(W, H);
-    const camW = clamp01Range(shortSide * 0.42, 150, 460);
-    const camH = camW * 1.06; // matches the source camera photo's proportions
+    // small — a supporting detail, not competing with the polaroid card
+    const camW = clamp01Range(shortSide * 0.22, 110, 190);
+    const camH = camW * (700 / 600); // matches the source camera photo's proportions
     CAMERA = {
       w: camW,
       h: camH,
@@ -306,11 +307,11 @@
     const cx = W / 2;
 
     // camera pops in first
-    const pCam = progressBetween(t, 0.0, 0.1);
+    const pCam = progressBetween(t, 0.0, 0.06);
     if (pCam > 0) drawCamera(easeOutCubic(pCam));
 
     // polaroid slides out from the camera's slot
-    const pEject = progressBetween(t, 0.06, 0.32);
+    const pEject = progressBetween(t, 0.04, 0.2);
     if (pEject <= 0) { drawFlash(t); return; }
     const eject = easeOutCubic(pEject);
     const startY = CAMERA.slotY - POLA.h + 22;
@@ -335,7 +336,7 @@
     if (pCam > 0) drawCamera(easeOutCubic(pCam));
 
     // washi tape across two corners, once the photo is mostly out
-    const pTape = progressBetween(t, 0.26, 0.38);
+    const pTape = progressBetween(t, 0.17, 0.25);
     if (pTape > 0) {
       ctx.save();
       ctx.globalAlpha = easeOutCubic(pTape);
@@ -368,7 +369,7 @@
     // Every piece of info develops together, like a Polaroid photo: it all
     // fades in from a heavy blur to sharp at once, instead of one line at
     // a time.
-    const pInfo = progressBetween(t, 0.42, 0.8);
+    const pInfo = progressBetween(t, 0.26, 0.94);
     const infoEase = easeOutCubic(pInfo);
     const infoBlur = (1 - infoEase) * 16 * S;
     ctx.globalAlpha = infoEase;
@@ -462,7 +463,7 @@
     drawFlash(t);
   }
 
-  const REVEAL_MS = 4600;
+  const REVEAL_MS = 7400;
 
   // drives the on-screen popup reveal (whatever shape the viewer's canvas
   // currently is — always the live canvas, never the export one)
