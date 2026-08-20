@@ -264,14 +264,14 @@
 
   // Reveal timeline, as fractions of REVEAL_MS — named so the flash, the
   // camera and the eject all agree on when each beat happens.
-  const T_CAM_START = 0.10;   // 1s of blank pause before the camera appears
-  const T_CAM_END = 0.14;
-  const T_EJECT_START = 0.29; // ~1.5s after the camera settles in
-  const T_EJECT_END = 0.43;
-  const T_TAPE_START = 0.43;
-  const T_TAPE_END = 0.47;
-  const T_INFO_START = 0.47;
-  const T_INFO_END = 0.97;    // ~5s develop, per the last request
+  const T_CAM_START = 0.11;   // 1s of blank pause before the camera appears
+  const T_CAM_END = 0.15;
+  const T_POLA_START = 0.31;  // ~1.5s after the camera settles in
+  const T_POLA_END = 0.41;    // whole card fades/scales in together, ~1s
+  const T_TAPE_START = 0.41;
+  const T_TAPE_END = 0.44;
+  const T_INFO_START = 0.44;
+  const T_INFO_END = 0.97;    // ~5s develop, unchanged
 
   function drawFlash(t) {
     // the shutter-flash snap happens right as the camera appears, not at
@@ -316,23 +316,22 @@
     const pCam = progressBetween(t, T_CAM_START, T_CAM_END);
     if (pCam > 0) drawCamera(easeOutCubic(pCam));
 
-    // the photo drops out of the camera's slot: revealed top-down through a
-    // clip mask (not slid down from off-screen — with the camera this small
-    // relative to the card, translating the whole card down from behind it
-    // meant most of the card had to start above the camera entirely, which
-    // read as falling in from the top of the screen instead of the slot)
-    const pEject = progressBetween(t, T_EJECT_START, T_EJECT_END);
-    if (pEject <= 0) { drawFlash(t); return; }
-    const eject = easeOutCubic(pEject);
-    const revealH = POLA.h * eject;
+    // the whole polaroid fades and scales in together — no directional
+    // slide or reveal, it just materializes as one piece
+    const pPola = progressBetween(t, T_POLA_START, T_POLA_END);
+    if (pPola <= 0) { drawFlash(t); return; }
+    const polaEase = easeOutCubic(pPola);
+    const scale = 0.88 + 0.12 * polaEase;
+    const polaCx = POLA.x + POLA.w / 2, polaCy = POLA.y + POLA.h / 2;
 
     ctx.save();
-    roundRectPath(ctx, POLA.x - 4, POLA.y - 4, POLA.w + 8, revealH + 4, 20);
-    ctx.clip();
-
+    ctx.globalAlpha = polaEase;
+    ctx.translate(polaCx, polaCy);
+    ctx.scale(scale, scale);
+    ctx.translate(-polaCx, -polaCy);
     ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 16 + 22 * eject;
-    ctx.shadowOffsetY = 6 + 14 * eject;
+    ctx.shadowBlur = 16 + 22 * polaEase;
+    ctx.shadowOffsetY = 6 + 14 * polaEase;
     roundRectPath(ctx, POLA.x, POLA.y, POLA.w, POLA.h, 20);
     ctx.fillStyle = CREAM;
     ctx.fill();
@@ -342,8 +341,6 @@
     ctx.fill();
     ctx.restore();
 
-    // camera sits on top, so its bottom edge always reads as the source of
-    // the reveal even though the clip mask does the actual work
     if (pCam > 0) drawCamera(easeOutCubic(pCam));
 
     // washi tape across two corners, once the photo is mostly out
@@ -474,7 +471,7 @@
     drawFlash(t);
   }
 
-  const REVEAL_MS = 9800;
+  const REVEAL_MS = 9500;
 
   // drives the on-screen popup reveal (whatever shape the viewer's canvas
   // currently is — always the live canvas, never the export one)
