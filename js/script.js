@@ -138,16 +138,20 @@
     return lines;
   }
 
-  // single polaroid geometry — everything lives inside this frame
-  const POLA = { w: 760, h: 1080 };
+  // single polaroid geometry — real 107 x 88mm format, 79 x 77mm image area
+  const MM_W = 88, MM_H = 107, IMG_MM_W = 79, IMG_MM_H = 77;
+  const POLA = { w: 720 };
+  POLA.h = Math.round(POLA.w * (MM_H / MM_W));
   POLA.x = (W - POLA.w) / 2;
   POLA.y = (H - POLA.h) / 2;
-  const PAD = 44, CAPTION_H = 170;
+  const MM_TO_PX = POLA.w / MM_W;
+  const PAD = Math.round(((MM_W - IMG_MM_W) / 2) * MM_TO_PX);
+  const CAPTION_H = POLA.h - PAD - Math.round(IMG_MM_H * MM_TO_PX);
   const PHOTO = {
     x: POLA.x + PAD,
     y: POLA.y + PAD,
     w: POLA.w - PAD * 2,
-    h: POLA.h - PAD * 2 - CAPTION_H,
+    h: POLA.h - PAD - CAPTION_H,
   };
   const CAPTION = { x: POLA.x, y: PHOTO.y + PHOTO.h, w: POLA.w, h: CAPTION_H };
 
@@ -155,6 +159,29 @@
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = CREAM;
     ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawTape(cx, cy, w, h, rot, color, pattern) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = color;
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = '#2A2018';
+    if (pattern === 'stripe') {
+      for (let i = -w / 2 + 6; i < w / 2; i += 14) {
+        ctx.fillRect(i, -h / 2, 4, h);
+      }
+    } else if (pattern === 'dot') {
+      for (let i = -w / 2 + 10; i < w / 2; i += 18) {
+        ctx.beginPath();
+        ctx.arc(i, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 
   function drawContent(t) {
@@ -183,6 +210,16 @@
     ctx.fill();
     ctx.restore();
 
+    // washi tape across two corners
+    const pTape = progressBetween(t, 0.08, 0.22);
+    if (pTape > 0) {
+      ctx.save();
+      ctx.globalAlpha = easeOutCubic(pTape) * a;
+      drawTape(POLA.x + 26, POLA.y + 8, 108, 40, -0.5, PASTEL_BLUE, 'stripe');
+      drawTape(POLA.x + POLA.w - 24, POLA.y + POLA.h * 0.32, 100, 38, 0.48, CARD_BEIGE, 'dot');
+      ctx.restore();
+    }
+
     // content clipped to the red photo window
     ctx.save();
     roundRectPath(ctx, PHOTO.x, PHOTO.y, PHOTO.w, PHOTO.h, 8);
@@ -207,11 +244,11 @@
       ctx.save();
       ctx.globalAlpha = easeOutCubic(p0);
       ctx.translate(0, (1 - easeOutCubic(p0)) * -14);
-      ctx.font = '700 24px Outfit, sans-serif';
+      ctx.font = '700 21px Outfit, sans-serif';
       ctx.fillStyle = CARD_BEIGE;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(EVENT.eyebrow, cx, PHOTO.y + 60);
+      ctx.fillText(EVENT.eyebrow, cx, PHOTO.y + 46);
       ctx.restore();
     }
 
@@ -219,10 +256,10 @@
     const p1 = progressBetween(t, 0.22, 0.42);
     if (p1 > 0) {
       const scale = 0.4 + 0.6 * easeOutBack(p1);
-      const r = 66;
+      const r = 58;
       ctx.save();
       ctx.globalAlpha = clamp01(p1 * 2);
-      ctx.translate(cx, PHOTO.y + 176);
+      ctx.translate(cx, PHOTO.y + 132);
       ctx.scale(scale, scale);
       ctx.beginPath();
       ctx.arc(0, 0, r, 0, Math.PI * 2);
@@ -249,14 +286,14 @@
       ctx.save();
       ctx.globalAlpha = easeOutCubic(p2);
       ctx.translate(0, (1 - easeOutCubic(p2)) * 16);
-      ctx.font = '800 46px Outfit, sans-serif';
+      ctx.font = '800 38px Outfit, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = CARD_BEIGE;
-      ctx.fillText(EVENT.brand, cx, PHOTO.y + 300);
-      ctx.font = '600 22px Outfit, sans-serif';
+      ctx.fillText(EVENT.brand, cx, PHOTO.y + 244);
+      ctx.font = '600 19px Outfit, sans-serif';
       ctx.fillStyle = PASTEL_BLUE;
-      ctx.fillText(EVENT.tagline, cx, PHOTO.y + 340);
+      ctx.fillText(EVENT.tagline, cx, PHOTO.y + 280);
       ctx.restore();
     }
 
@@ -266,24 +303,24 @@
       ctx.save();
       ctx.globalAlpha = easeOutCubic(p3);
       ctx.translate(0, (1 - easeOutCubic(p3)) * 14);
-      ctx.font = '600 22px Outfit, sans-serif';
+      ctx.font = '600 19px Outfit, sans-serif';
       ctx.fillStyle = 'rgba(232,217,187,0.75)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(EVENT.forLabel, cx, PHOTO.y + 420);
+      ctx.fillText(EVENT.forLabel, cx, PHOTO.y + 352);
 
       let displayName = window.__inviteName || 'you';
-      ctx.font = '800 46px Outfit, sans-serif';
+      ctx.font = '800 38px Outfit, sans-serif';
       let nameWidth = ctx.measureText(displayName).width;
-      const maxNameWidth = PHOTO.w - 60;
-      let fontSize = 46;
-      while (nameWidth > maxNameWidth && fontSize > 24) {
+      const maxNameWidth = PHOTO.w - 56;
+      let fontSize = 38;
+      while (nameWidth > maxNameWidth && fontSize > 22) {
         fontSize -= 2;
         ctx.font = `800 ${fontSize}px Outfit, sans-serif`;
         nameWidth = ctx.measureText(displayName).width;
       }
       ctx.fillStyle = CARD_BEIGE;
-      ctx.fillText(`${displayName} 💕`, cx, PHOTO.y + 470);
+      ctx.fillText(`${displayName} 💕`, cx, PHOTO.y + 396);
       ctx.restore();
     }
 
@@ -295,11 +332,11 @@
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.translate(0, ty);
-      ctx.font = '700 26px Outfit, sans-serif';
+      ctx.font = '700 21px Outfit, sans-serif';
       ctx.fillStyle = CARD_BEIGE;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`🕓  ${EVENT.time}   ·   ${EVENT.date}`, cx, PHOTO.y + 560);
+      ctx.fillText(`🕓  ${EVENT.time}   ·   ${EVENT.date}`, cx, PHOTO.y + 478);
       ctx.restore();
     }
 
@@ -311,14 +348,14 @@
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.translate(0, ty);
-      ctx.font = '700 21px Outfit, sans-serif';
+      ctx.font = '700 17px Outfit, sans-serif';
       ctx.fillStyle = CARD_BEIGE;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const maxTextWidth = PHOTO.w - 70;
+      const maxTextWidth = PHOTO.w - 60;
       const lines = wrapLines('📍 ' + EVENT.address, maxTextWidth);
-      const lineH = 30;
-      const startY = PHOTO.y + 630;
+      const lineH = 24;
+      const startY = PHOTO.y + 540;
       lines.forEach((line, i) => {
         ctx.fillText(line, cx, startY + i * lineH);
       });
