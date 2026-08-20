@@ -98,7 +98,7 @@
     cameraImg.onload = resolve;
     cameraImg.onerror = resolve;
   });
-  cameraImg.src = 'assets/camera.jpg';
+  cameraImg.src = 'assets/camera.png';
 
   const fontsReady = Promise.all([
     document.fonts.load('400 40px Outfit'),
@@ -245,28 +245,20 @@
   }
 
   function drawCamera(alpha) {
+    if (!(cameraImg.complete && cameraImg.naturalWidth)) return;
     const { x, y, w, h } = CAMERA;
+    // the source photo is already a clean transparent cutout, so the
+    // canvas shadow traces the camera's own silhouette — no card needed
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.shadowColor = 'rgba(0,0,0,0.3)';
-    ctx.shadowBlur = 24;
-    ctx.shadowOffsetY = 12;
-    roundRectPath(ctx, x, y, w, h, 20);
-    ctx.fillStyle = CREAM;
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-
-    ctx.save();
-    roundRectPath(ctx, x, y, w, h, 20);
-    ctx.clip();
-    if (cameraImg.complete && cameraImg.naturalWidth) {
-      const imgRatio = cameraImg.naturalWidth / cameraImg.naturalHeight;
-      const boxRatio = w / h;
-      let dw, dh;
-      if (imgRatio > boxRatio) { dh = h; dw = h * imgRatio; } else { dw = w; dh = w / imgRatio; }
-      ctx.drawImage(cameraImg, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
-    }
-    ctx.restore();
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 10;
+    const imgRatio = cameraImg.naturalWidth / cameraImg.naturalHeight;
+    const boxRatio = w / h;
+    let dw, dh;
+    if (imgRatio > boxRatio) { dw = w; dh = w / imgRatio; } else { dh = h; dw = h * imgRatio; }
+    ctx.drawImage(cameraImg, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
     ctx.restore();
   }
 
