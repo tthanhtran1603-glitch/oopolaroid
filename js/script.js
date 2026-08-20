@@ -44,10 +44,6 @@
   const clamp01 = (x) => Math.max(0, Math.min(1, x));
   const progressBetween = (t, a, b) => clamp01((t - a) / (b - a));
   const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
-  const easeOutBack = (x) => {
-    const c1 = 1.70158, c3 = c1 + 1;
-    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
-  };
 
   function addBubble(text, dir) {
     const row = document.createElement('div');
@@ -97,6 +93,13 @@
   });
   logoImg.src = 'assets/logo.png';
 
+  const cameraImg = new Image();
+  const cameraReady = new Promise((resolve) => {
+    cameraImg.onload = resolve;
+    cameraImg.onerror = resolve;
+  });
+  cameraImg.src = 'assets/camera.jpg';
+
   const fontsReady = Promise.all([
     document.fonts.load('400 40px Outfit'),
     document.fonts.load('600 40px Outfit'),
@@ -104,7 +107,7 @@
     document.fonts.load('800 40px Outfit'),
   ]).catch(() => {});
 
-  const assetsReady = Promise.all([logoReady, fontsReady]);
+  const assetsReady = Promise.all([logoReady, cameraReady, fontsReady]);
 
   // ============ canvas drawing ============
   const PASTEL_BLUE = '#C1DBE8';
@@ -127,7 +130,7 @@
     // a tall phone popup, a wide desktop popup, or the fixed 9:16 export
     const shortSide = Math.min(W, H);
     const camW = clamp01Range(shortSide * 0.42, 150, 460);
-    const camH = camW * 0.42;
+    const camH = camW * 1.06; // matches the source camera photo's proportions
     CAMERA = {
       w: camW,
       h: camH,
@@ -244,46 +247,25 @@
     const { x, y, w, h } = CAMERA;
     ctx.save();
     ctx.globalAlpha = alpha;
-
-    // viewfinder bump
-    const bumpW = w * 0.3, bumpH = h * 0.16;
-    roundRectPath(ctx, x + w * 0.1, y - bumpH * 0.55, bumpW, bumpH, bumpH * 0.4);
-    ctx.fillStyle = CARD_RED;
-    ctx.fill();
-
-    // body
-    roundRectPath(ctx, x, y, w, h, h * 0.2);
-    ctx.fillStyle = CARD_RED;
-    ctx.shadowColor = 'rgba(0,0,0,0.28)';
-    ctx.shadowBlur = 20;
-    ctx.shadowOffsetY = 10;
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 12;
+    roundRectPath(ctx, x, y, w, h, 20);
+    ctx.fillStyle = CREAM;
     ctx.fill();
     ctx.shadowColor = 'transparent';
 
-    // lens
-    const lensR = h * 0.42;
-    const lensCx = x + w * 0.35, lensCy = y + h * 0.52;
-    ctx.beginPath(); ctx.arc(lensCx, lensCy, lensR, 0, Math.PI * 2);
-    ctx.fillStyle = CREAM; ctx.fill();
-    ctx.beginPath(); ctx.arc(lensCx, lensCy, lensR * 0.64, 0, Math.PI * 2);
-    ctx.fillStyle = PASTEL_BLUE; ctx.fill();
-    ctx.beginPath(); ctx.arc(lensCx, lensCy, lensR * 0.32, 0, Math.PI * 2);
-    ctx.fillStyle = CARD_RED; ctx.fill();
-    ctx.beginPath(); ctx.arc(lensCx - lensR * 0.26, lensCy - lensR * 0.26, lensR * 0.15, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fill();
-
-    // flash
-    const flashS = h * 0.32;
-    roundRectPath(ctx, x + w * 0.72, y + h * 0.16, flashS, flashS, flashS * 0.3);
-    ctx.fillStyle = CREAM;
-    ctx.fill();
-
-    // shutter button
-    ctx.beginPath();
-    ctx.arc(x + w * 0.9, y + h * 0.8, h * 0.075, 0, Math.PI * 2);
-    ctx.fillStyle = CREAM;
-    ctx.fill();
-
+    ctx.save();
+    roundRectPath(ctx, x, y, w, h, 20);
+    ctx.clip();
+    if (cameraImg.complete && cameraImg.naturalWidth) {
+      const imgRatio = cameraImg.naturalWidth / cameraImg.naturalHeight;
+      const boxRatio = w / h;
+      let dw, dh;
+      if (imgRatio > boxRatio) { dh = h; dw = h * imgRatio; } else { dw = w; dh = w / imgRatio; }
+      ctx.drawImage(cameraImg, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+    }
+    ctx.restore();
     ctx.restore();
   }
 
@@ -383,37 +365,31 @@
     }
     ctx.restore();
 
-    // eyebrow label
-    const p0 = progressBetween(t, 0.36, 0.48);
-    if (p0 > 0) {
-      ctx.save();
-      ctx.globalAlpha = easeOutCubic(p0);
-      ctx.translate(0, (1 - easeOutCubic(p0)) * -14 * S);
+    // Every piece of info develops together, like a Polaroid photo: it all
+    // fades in from a heavy blur to sharp at once, instead of one line at
+    // a time.
+    const pInfo = progressBetween(t, 0.42, 0.8);
+    const infoEase = easeOutCubic(pInfo);
+    const infoBlur = (1 - infoEase) * 16 * S;
+    ctx.globalAlpha = infoEase;
+    ctx.filter = infoBlur > 0.3 ? `blur(${infoBlur}px)` : 'none';
+
+    if (pInfo > 0) {
+      // eyebrow label
       ctx.font = `700 ${21 * S}px Outfit, sans-serif`;
       ctx.fillStyle = CARD_BEIGE;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(EVENT.eyebrow, cx, PHOTO.y + 46 * S);
-      ctx.restore();
-    }
 
-    // logo sticker (bounce)
-    const p1 = progressBetween(t, 0.44, 0.58);
-    if (p1 > 0) {
-      const scale = 0.4 + 0.6 * easeOutBack(p1);
+      // logo sticker
       const r = 58 * S;
       ctx.save();
-      ctx.globalAlpha = clamp01(p1 * 2);
       ctx.translate(cx, PHOTO.y + 132 * S);
-      ctx.scale(scale, scale);
       ctx.beginPath();
       ctx.arc(0, 0, r, 0, Math.PI * 2);
       ctx.fillStyle = CREAM;
-      ctx.shadowColor = 'rgba(0,0,0,0.35)';
-      ctx.shadowBlur = 16 * S;
-      ctx.shadowOffsetY = 6 * S;
       ctx.fill();
-      ctx.shadowColor = 'transparent';
       if (logoImg.complete && logoImg.naturalWidth) {
         const pad = 18 * S;
         const iw = r * 2 - pad * 2;
@@ -423,35 +399,18 @@
         ctx.drawImage(logoImg, -dw / 2, -dh / 2, dw, dh);
       }
       ctx.restore();
-    }
 
-    // brand title
-    const p2 = progressBetween(t, 0.54, 0.66);
-    if (p2 > 0) {
-      ctx.save();
-      ctx.globalAlpha = easeOutCubic(p2);
-      ctx.translate(0, (1 - easeOutCubic(p2)) * 16 * S);
+      // brand title
       ctx.font = `800 ${38 * S}px Outfit, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
       ctx.fillStyle = CARD_BEIGE;
       ctx.fillText(EVENT.brand, cx, PHOTO.y + 244 * S);
       ctx.font = `600 ${19 * S}px Outfit, sans-serif`;
       ctx.fillStyle = PASTEL_BLUE;
       ctx.fillText(EVENT.tagline, cx, PHOTO.y + 280 * S);
-      ctx.restore();
-    }
 
-    // name
-    const p3 = progressBetween(t, 0.64, 0.76);
-    if (p3 > 0) {
-      ctx.save();
-      ctx.globalAlpha = easeOutCubic(p3);
-      ctx.translate(0, (1 - easeOutCubic(p3)) * 14 * S);
+      // name
       ctx.font = `600 ${19 * S}px Outfit, sans-serif`;
       ctx.fillStyle = 'rgba(232,217,187,0.75)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
       ctx.fillText(EVENT.forLabel, cx, PHOTO.y + 352 * S);
 
       let displayName = window.__inviteName || 'you';
@@ -467,37 +426,13 @@
       }
       ctx.fillStyle = CARD_BEIGE;
       ctx.fillText(displayName, cx, PHOTO.y + 396 * S);
-      ctx.restore();
-    }
 
-    // date/time
-    const p4 = progressBetween(t, 0.74, 0.84);
-    if (p4 > 0) {
-      const alpha = easeOutCubic(p4);
-      const ty = (1 - alpha) * 12 * S;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(0, ty);
+      // date/time
       ctx.font = `700 ${21 * S}px Outfit, sans-serif`;
-      ctx.fillStyle = CARD_BEIGE;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
       ctx.fillText(`🕓  ${EVENT.time}   ·   ${EVENT.date}`, cx, PHOTO.y + 478 * S);
-      ctx.restore();
-    }
 
-    // address
-    const p5 = progressBetween(t, 0.82, 0.92);
-    if (p5 > 0) {
-      const alpha = easeOutCubic(p5);
-      const ty = (1 - alpha) * 12 * S;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(0, ty);
+      // address
       ctx.font = `700 ${17 * S}px Outfit, sans-serif`;
-      ctx.fillStyle = CARD_BEIGE;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
       const maxTextWidth = PHOTO.w - 60 * S;
       const lines = wrapLines('📍 ' + EVENT.address, maxTextWidth);
       const lineH = 24 * S;
@@ -505,16 +440,17 @@
       lines.forEach((line, i) => {
         ctx.fillText(line, cx, startY + i * lineH);
       });
-      ctx.restore();
     }
 
+    ctx.filter = 'none';
+    ctx.globalAlpha = 1;
     ctx.restore(); // photo window clip
 
-    // caption strip (note under the photo)
-    const p6 = progressBetween(t, 0.92, 1.0);
-    if (p6 > 0) {
+    // caption strip (note under the photo) — develops in step with the rest
+    if (pInfo > 0) {
       ctx.save();
-      ctx.globalAlpha = easeOutCubic(p6);
+      ctx.globalAlpha = infoEase;
+      ctx.filter = infoBlur > 0.3 ? `blur(${infoBlur}px)` : 'none';
       ctx.font = `600 ${28 * S}px Outfit, sans-serif`;
       ctx.fillStyle = CARD_RED;
       ctx.textAlign = 'center';
