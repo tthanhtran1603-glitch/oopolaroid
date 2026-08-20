@@ -48,38 +48,30 @@
     </form>
   </section>
 
-  <!-- ===== CARD MODAL (pops up over the chat) ===== -->
-  <div class="modal-overlay" id="cardOverlay" hidden>
-    <div class="modal-card">
-      <button class="modal-close" id="closeBtn" type="button" aria-label="Close">✕</button>
-
-      <div class="card-app-header">
-        <img class="card-app-avatar" src="assets/logo.svg" alt="">
-        <div class="card-app-header-text">
-          <strong>MESSAGE</strong>
-          <span id="cardDateLabel"></span>
-        </div>
-      </div>
-
-      <div class="card-wrap">
-        <canvas id="inviteCanvas" width="900" height="1260"></canvas>
-      </div>
-
-      <div class="card-actions">
-        <button class="btn btn-primary" id="saveVideoBtn">
-          <span class="btn-icon">🎥</span> Save Video
-        </button>
-        <button class="btn btn-secondary" id="saveImageBtn">
-          <span class="btn-icon">💾</span> Save Image
-        </button>
-      </div>
-      <p class="card-progress" id="videoProgress" hidden></p>
-
-      <button class="reset-link" id="resetBtn" type="button">Invite someone else →</button>
-    </div>
-  </div>
-
 </main>
+
+<!-- ===== CARD MODAL (fullscreen polaroid pops up over the chat) — lives outside
+     .phone so `position: fixed` sizes against the real viewport, not the
+     backdrop-filtered phone shell ===== -->
+<div class="modal-overlay" id="cardOverlay" hidden>
+  <button class="modal-close" id="closeBtn" type="button" aria-label="Close">✕</button>
+
+  <canvas id="inviteCanvas"></canvas>
+
+  <div class="card-actions-bar">
+    <div class="card-actions">
+      <button class="btn btn-primary" id="saveVideoBtn">
+        <span class="btn-icon">🎥</span> Save Video
+      </button>
+      <button class="btn btn-secondary" id="saveImageBtn">
+        <span class="btn-icon">💾</span> Save Image
+      </button>
+    </div>
+    <p class="card-progress" id="videoProgress" hidden></p>
+
+    <button class="reset-link" id="resetBtn" type="button">Invite someone else →</button>
+  </div>
+</div>
 
 <script src="js/script.js"></script>
 </body>
