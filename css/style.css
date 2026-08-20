@@ -406,30 +406,6 @@ body {
   background: var(--cream);
 }
 
-.sparkles {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.sparkles span {
-  position: absolute;
-  font-size: 1.1rem;
-  color: var(--pastel-blue);
-  opacity: 0.9;
-  animation: twinkle 2.6s ease-in-out infinite;
-  text-shadow: 0 0 6px rgba(193,219,232,0.7);
-}
-.sparkles span:nth-child(1) { top: 6%; left: 8%; animation-delay: 0s; }
-.sparkles span:nth-child(2) { top: 12%; right: 10%; animation-delay: 0.5s; font-size: 0.8rem; }
-.sparkles span:nth-child(3) { bottom: 18%; left: 6%; animation-delay: 1s; font-size: 0.9rem; }
-.sparkles span:nth-child(4) { bottom: 8%; right: 12%; animation-delay: 1.5s; }
-.sparkles span:nth-child(5) { top: 45%; left: -3%; animation-delay: 2s; font-size: 0.7rem; }
-
-@keyframes twinkle {
-  0%, 100% { opacity: 0; transform: scale(0.6) rotate(0deg); }
-  50% { opacity: 1; transform: scale(1.15) rotate(15deg); }
-}
-
 .card-actions {
   display: flex;
   gap: 12px;
