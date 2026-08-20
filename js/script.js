@@ -299,11 +299,11 @@
     const cx = W / 2;
 
     // camera pops in first
-    const pCam = progressBetween(t, 0.0, 0.06);
+    const pCam = progressBetween(t, 0.0, 0.04);
     if (pCam > 0) drawCamera(easeOutCubic(pCam));
 
     // polaroid slides out from the camera's slot
-    const pEject = progressBetween(t, 0.04, 0.2);
+    const pEject = progressBetween(t, 0.13, 0.28);
     if (pEject <= 0) { drawFlash(t); return; }
     const eject = easeOutCubic(pEject);
     const startY = CAMERA.slotY - POLA.h + 22;
@@ -328,7 +328,7 @@
     if (pCam > 0) drawCamera(easeOutCubic(pCam));
 
     // washi tape across two corners, once the photo is mostly out
-    const pTape = progressBetween(t, 0.17, 0.25);
+    const pTape = progressBetween(t, 0.28, 0.32);
     if (pTape > 0) {
       ctx.save();
       ctx.globalAlpha = easeOutCubic(pTape);
@@ -361,7 +361,7 @@
     // Every piece of info develops together, like a Polaroid photo: it all
     // fades in from a heavy blur to sharp at once, instead of one line at
     // a time.
-    const pInfo = progressBetween(t, 0.26, 0.94);
+    const pInfo = progressBetween(t, 0.32, 0.96);
     const infoEase = easeOutCubic(pInfo);
     const infoBlur = (1 - infoEase) * 16 * S;
     ctx.globalAlpha = infoEase;
@@ -455,7 +455,7 @@
     drawFlash(t);
   }
 
-  const REVEAL_MS = 7400;
+  const REVEAL_MS = 7800;
 
   // drives the on-screen popup reveal (whatever shape the viewer's canvas
   // currently is — always the live canvas, never the export one)
