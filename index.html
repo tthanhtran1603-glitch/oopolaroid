@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>O-O Polaroid — Invitation</title>
+<meta name="description" content="You're invited to the O-O Polaroid opening store">
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="bg-blobs" aria-hidden="true">
+  <span class="blob blob-1"></span>
+  <span class="blob blob-2"></span>
+  <span class="blob blob-3"></span>
+  <span class="blob blob-4"></span>
+</div>
+
+<main class="phone">
+
+  <!-- ===== CHAT SCREEN (always present underneath) ===== -->
+  <section class="screen chat-screen" id="chatScreen">
+    <header class="chat-header">
+      <span class="chat-avatar-ring"><img class="chat-avatar" src="assets/logo.svg" alt=""></span>
+      <div class="chat-header-text">
+        <strong>O-O Polaroid</strong>
+        <span class="chat-status"><i class="dot"></i> Đang hoạt động</span>
+      </div>
+    </header>
+
+    <div class="chat-body" id="chatBody">
+      <!-- bubbles injected by JS -->
+    </div>
+
+    <form class="chat-input-row" id="nameForm" hidden>
+      <input
+        type="text"
+        id="nameInput"
+        class="chat-input"
+        placeholder="Tên của bạn..."
+        maxlength="40"
+        autocomplete="off"
+      >
+      <button type="submit" class="chat-send" id="sendBtn" aria-label="Gửi">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 20l18-8L3 4v6l12 2-12 2z"/></svg>
+      </button>
+    </form>
+  </section>
+
+  <!-- ===== CARD MODAL (pops up over the chat) ===== -->
+  <div class="modal-overlay" id="cardOverlay" hidden>
+    <div class="modal-card">
+      <button class="modal-close" id="closeBtn" type="button" aria-label="Close">✕</button>
+
+      <div class="card-app-header">
+        <img class="card-app-avatar" src="assets/logo.svg" alt="">
+        <div class="card-app-header-text">
+          <strong>MESSAGE</strong>
+          <span id="cardDateLabel"></span>
+        </div>
+      </div>
+
+      <div class="card-wrap">
+        <canvas id="inviteCanvas" width="900" height="1260"></canvas>
+        <div class="sparkles" aria-hidden="true">
+          <span>✦</span><span>✧</span><span>✦</span><span>✧</span><span>✦</span>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <button class="btn btn-primary" id="saveVideoBtn">
+          <span class="btn-icon">🎥</span> Save Video
+        </button>
+        <button class="btn btn-secondary" id="saveImageBtn">
+          <span class="btn-icon">💾</span> Save Image
+        </button>
+      </div>
+      <p class="card-progress" id="videoProgress" hidden></p>
+
+      <button class="reset-link" id="resetBtn" type="button">Invite someone else →</button>
+    </div>
+  </div>
+
+</main>
+
+<script src="js/script.js"></script>
+</body>
+</html>
