@@ -262,8 +262,22 @@
     ctx.restore();
   }
 
+  // Reveal timeline, as fractions of REVEAL_MS — named so the flash, the
+  // camera and the eject all agree on when each beat happens.
+  const T_CAM_START = 0.10;   // 1s of blank pause before the camera appears
+  const T_CAM_END = 0.14;
+  const T_EJECT_START = 0.29; // ~1.5s after the camera settles in
+  const T_EJECT_END = 0.43;
+  const T_TAPE_START = 0.43;
+  const T_TAPE_END = 0.47;
+  const T_INFO_START = 0.47;
+  const T_INFO_END = 0.97;    // ~5s develop, per the last request
+
   function drawFlash(t) {
-    const flashA = Math.max(0, 1 - t / 0.07);
+    // the shutter-flash snap happens right as the camera appears, not at
+    // the very start of the (now blank) pause
+    if (t < T_CAM_START) return;
+    const flashA = Math.max(0, 1 - (t - T_CAM_START) / 0.05);
     if (flashA <= 0) return;
     ctx.save();
     ctx.globalAlpha = flashA * 0.9;
@@ -298,23 +312,27 @@
   function drawContent(t) {
     const cx = W / 2;
 
-    // camera pops in first
-    const pCam = progressBetween(t, 0.0, 0.04);
+    // 1s blank pause, then the camera fades in
+    const pCam = progressBetween(t, T_CAM_START, T_CAM_END);
     if (pCam > 0) drawCamera(easeOutCubic(pCam));
 
-    // polaroid slides out from the camera's slot
-    const pEject = progressBetween(t, 0.13, 0.28);
+    // the photo drops out of the camera's slot: revealed top-down through a
+    // clip mask (not slid down from off-screen — with the camera this small
+    // relative to the card, translating the whole card down from behind it
+    // meant most of the card had to start above the camera entirely, which
+    // read as falling in from the top of the screen instead of the slot)
+    const pEject = progressBetween(t, T_EJECT_START, T_EJECT_END);
     if (pEject <= 0) { drawFlash(t); return; }
     const eject = easeOutCubic(pEject);
-    const startY = CAMERA.slotY - POLA.h + 22;
-    const curY = startY + (POLA.y - startY) * eject;
-    const dy = curY - POLA.y;
+    const revealH = POLA.h * eject;
 
     ctx.save();
-    ctx.translate(0, dy);
+    roundRectPath(ctx, POLA.x - 4, POLA.y - 4, POLA.w + 8, revealH + 4, 20);
+    ctx.clip();
+
     ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 34;
-    ctx.shadowOffsetY = 18;
+    ctx.shadowBlur = 16 + 22 * eject;
+    ctx.shadowOffsetY = 6 + 14 * eject;
     roundRectPath(ctx, POLA.x, POLA.y, POLA.w, POLA.h, 20);
     ctx.fillStyle = CREAM;
     ctx.fill();
@@ -324,11 +342,12 @@
     ctx.fill();
     ctx.restore();
 
-    // camera sits on top, hiding whatever hasn't emerged yet
+    // camera sits on top, so its bottom edge always reads as the source of
+    // the reveal even though the clip mask does the actual work
     if (pCam > 0) drawCamera(easeOutCubic(pCam));
 
     // washi tape across two corners, once the photo is mostly out
-    const pTape = progressBetween(t, 0.28, 0.32);
+    const pTape = progressBetween(t, T_TAPE_START, T_TAPE_END);
     if (pTape > 0) {
       ctx.save();
       ctx.globalAlpha = easeOutCubic(pTape);
@@ -361,7 +380,7 @@
     // Every piece of info develops together, like a Polaroid photo: it all
     // fades in from a heavy blur to sharp at once, instead of one line at
     // a time.
-    const pInfo = progressBetween(t, 0.32, 0.96);
+    const pInfo = progressBetween(t, T_INFO_START, T_INFO_END);
     const infoEase = easeOutCubic(pInfo);
     const infoBlur = (1 - infoEase) * 16 * S;
     ctx.globalAlpha = infoEase;
@@ -455,7 +474,7 @@
     drawFlash(t);
   }
 
-  const REVEAL_MS = 7800;
+  const REVEAL_MS = 9800;
 
   // drives the on-screen popup reveal (whatever shape the viewer's canvas
   // currently is — always the live canvas, never the export one)
@@ -605,6 +624,9 @@
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     if (!modalOpen) return;
+    // a backgrounded/occluded tab can report 0 for innerWidth/innerHeight;
+    // resizing the canvas to that would wipe it, so ignore those events
+    if (window.innerWidth <= 0 || window.innerHeight <= 0) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(restoreLiveCanvas, 150);
   });
