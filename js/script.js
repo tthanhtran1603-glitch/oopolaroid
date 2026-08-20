@@ -203,6 +203,21 @@
 
   const CARD = { x: 46, y: 46, w: W - 92, h: H - 92, r: 46 };
 
+  // polaroid geometry
+  const POLA = { w: 600, h: 860 };
+  POLA.x = CARD.x + (CARD.w - POLA.w) / 2;
+  POLA.y = CARD.y + 148;
+  POLA.cx = POLA.x + POLA.w / 2;
+  POLA.cy = POLA.y + POLA.h / 2;
+  const PAD = 34, CAPTION_H = 138;
+  const PHOTO = {
+    x: POLA.x + PAD,
+    y: POLA.y + PAD,
+    w: POLA.w - PAD * 2,
+    h: POLA.h - PAD * 2 - CAPTION_H,
+  };
+  const CAPTION = { x: POLA.x, y: PHOTO.y + PHOTO.h, w: POLA.w, h: CAPTION_H };
+
   function drawBase() {
     // outer background
     ctx.clearRect(0, 0, W, H);
@@ -213,6 +228,115 @@
     ctx.save();
     roundRectPath(ctx, CARD.x, CARD.y, CARD.w, CARD.h, CARD.r);
     ctx.fillStyle = CARD_RED;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTape(cx, cy, w, h, rot, color, pattern) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.globalAlpha = 0.88;
+    ctx.fillStyle = color;
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = '#2A2018';
+    if (pattern === 'stripe') {
+      for (let i = -w / 2 + 6; i < w / 2; i += 14) {
+        ctx.fillRect(i, -h / 2, 4, h);
+      }
+    } else if (pattern === 'dot') {
+      for (let i = -w / 2 + 10; i < w / 2; i += 18) {
+        ctx.beginPath();
+        ctx.arc(i, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawPaperclip(cx, cy, scale, rot, color) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.scale(scale, scale);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 9;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 4;
+    roundRectPath(ctx, -24, -78, 48, 156, 24);
+    ctx.stroke();
+    ctx.shadowColor = 'transparent';
+    roundRectPath(ctx, -13, -78, 26, 104, 13);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBow(cx, cy, scale, rot, color) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.scale(scale, scale);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.95;
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(side * 42, -34, side * 74, 8, side * 8, 14);
+      ctx.bezierCurveTo(side * 74, 24, side * 42, 58, 0, 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.save();
+    ctx.rotate(Math.PI / 4);
+    ctx.fillRect(-9, -9, 18, 18);
+    ctx.restore();
+    ctx.restore();
+  }
+
+  function drawSeal(cx, cy, r, color, ink) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(0, r - 7), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    if (logoImg.complete && logoImg.naturalWidth) {
+      const iw = r * 1.1;
+      const ratio = logoImg.naturalWidth / logoImg.naturalHeight;
+      let dw = iw, dh = iw / ratio;
+      if (dh > iw) { dh = iw; dw = iw * ratio; }
+      ctx.globalAlpha = 0.92;
+      ctx.drawImage(logoImg, -dw / 2, -dh / 2, dw, dh);
+    }
+    ctx.restore();
+  }
+
+  function drawPolaroidShell(x, y, w, h, r, rot, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x + w / 2, y + h / 2);
+    ctx.rotate(rot);
+    ctx.translate(-w / 2, -h / 2);
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 26;
+    ctx.shadowOffsetY = 14;
+    roundRectPath(ctx, 0, 0, w, h, r);
+    ctx.fillStyle = CREAM;
     ctx.fill();
     ctx.restore();
   }
@@ -235,20 +359,10 @@
     }
     ctx.restore();
 
-    // dashed border frame
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = PASTEL_BLUE;
-    ctx.lineWidth = 5;
-    ctx.lineCap = 'round';
-    ctx.setLineDash([4, 22]);
-    roundRectPath(ctx, CARD.x + 26, CARD.y + 26, CARD.w - 52, CARD.h - 52, CARD.r - 16);
-    ctx.stroke();
-    ctx.restore();
-
     // corner star doodles
-    drawStar(CARD.x + 70, CARD.y + 66, 28, PASTEL_BLUE, 0.95, -0.2);
-    drawStar(CARD.x + CARD.w - 66, CARD.y + CARD.h - 74, 24, PASTEL_BLUE, 0.95, 0.4);
+    drawStar(CARD.x + 66, CARD.y + 64, 26, PASTEL_BLUE, 0.95, -0.2);
+    drawStar(CARD.x + CARD.w - 62, CARD.y + CARD.h - 70, 24, PASTEL_BLUE, 0.95, 0.4);
+    drawStar(CARD.x + CARD.w - 58, CARD.y + 100, 18, CARD_BEIGE, 0.85, 0.1);
 
     if (confettiOn) {
       for (const p of confetti) drawConfettiPiece(p);
@@ -256,8 +370,8 @@
 
     const cx = W / 2;
 
-    // eyebrow label
-    const p0 = progressBetween(t, 0.0, 0.18);
+    // eyebrow label (above the polaroid)
+    const p0 = progressBetween(t, 0.0, 0.14);
     if (p0 > 0) {
       ctx.save();
       ctx.globalAlpha = easeOutCubic(p0);
@@ -266,29 +380,84 @@
       ctx.fillStyle = CARD_BEIGE;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(EVENT.eyebrow, cx, CARD.y + 90);
+      ctx.fillText(EVENT.eyebrow, cx, CARD.y + 74);
       ctx.restore();
     }
 
+    // polaroid stack (two loose backing photos + the main one)
+    const pStack = progressBetween(t, 0.04, 0.24);
+    if (pStack > 0) {
+      const a = easeOutCubic(pStack);
+      const bounce = easeOutBack(pStack);
+      drawPolaroidShell(POLA.x, POLA.y, POLA.w, POLA.h, 18, -0.09 * bounce, a * 0.9);
+      drawPolaroidShell(POLA.x, POLA.y, POLA.w, POLA.h, 18, 0.06 * bounce, a * 0.95);
+
+      // main polaroid + red photo window
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.translate(POLA.cx, POLA.cy);
+      ctx.scale(0.9 + 0.1 * bounce, 0.9 + 0.1 * bounce);
+      ctx.translate(-POLA.cx, -POLA.cy);
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = 30;
+      ctx.shadowOffsetY = 16;
+      roundRectPath(ctx, POLA.x, POLA.y, POLA.w, POLA.h, 18);
+      ctx.fillStyle = CREAM;
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      roundRectPath(ctx, PHOTO.x, PHOTO.y, PHOTO.w, PHOTO.h, 8);
+      ctx.fillStyle = CARD_RED;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // washi tape holding the corners down
+    const pTape = progressBetween(t, 0.1, 0.24);
+    if (pTape > 0) {
+      ctx.save();
+      ctx.globalAlpha = easeOutCubic(pTape);
+      drawTape(POLA.x + 34, POLA.y + 10, 116, 42, -0.55, PASTEL_BLUE, 'stripe');
+      drawTape(POLA.x + POLA.w - 30, POLA.y + POLA.h - 14, 120, 40, -0.5, CARD_BEIGE, 'dot');
+      ctx.restore();
+    }
+
+    // paperclip on top edge
+    const pClip = progressBetween(t, 0.18, 0.32);
+    if (pClip > 0) {
+      const a = easeOutCubic(pClip);
+      const dropY = (1 - a) * -60;
+      ctx.save();
+      ctx.globalAlpha = a;
+      drawPaperclip(POLA.cx + POLA.w * 0.24, POLA.y + dropY, 0.62, -0.12, PASTEL_BLUE);
+      ctx.restore();
+    }
+
+    if (pStack <= 0) { ctx.restore(); return; }
+
+    // content clipped to the red photo window
+    ctx.save();
+    roundRectPath(ctx, PHOTO.x, PHOTO.y, PHOTO.w, PHOTO.h, 8);
+    ctx.clip();
+
     // logo sticker (bounce)
-    const p1 = progressBetween(t, 0.08, 0.34);
+    const p1 = progressBetween(t, 0.26, 0.46);
     if (p1 > 0) {
       const scale = 0.4 + 0.6 * easeOutBack(p1);
-      const r = 92;
+      const r = 56;
       ctx.save();
       ctx.globalAlpha = clamp01(p1 * 2);
-      ctx.translate(cx, CARD.y + 210);
+      ctx.translate(cx, PHOTO.y + 90);
       ctx.scale(scale, scale);
       ctx.beginPath();
       ctx.arc(0, 0, r, 0, Math.PI * 2);
       ctx.fillStyle = CREAM;
       ctx.shadowColor = 'rgba(0,0,0,0.35)';
-      ctx.shadowBlur = 18;
-      ctx.shadowOffsetY = 6;
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetY = 5;
       ctx.fill();
       ctx.shadowColor = 'transparent';
       if (logoImg.complete && logoImg.naturalWidth) {
-        const pad = 26;
+        const pad = 16;
         const iw = r * 2 - pad * 2;
         const ratio = logoImg.naturalWidth / logoImg.naturalHeight;
         let dw = iw, dh = iw / ratio;
@@ -299,101 +468,108 @@
     }
 
     // brand title
-    const p2 = progressBetween(t, 0.24, 0.44);
+    const p2 = progressBetween(t, 0.38, 0.54);
     if (p2 > 0) {
       ctx.save();
       ctx.globalAlpha = easeOutCubic(p2);
-      ctx.translate(0, (1 - easeOutCubic(p2)) * 18);
-      ctx.font = '800 58px Outfit, sans-serif';
+      ctx.translate(0, (1 - easeOutCubic(p2)) * 16);
+      ctx.font = '800 40px Outfit, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = CARD_BEIGE;
-      ctx.fillText(EVENT.brand, cx, CARD.y + 372);
-      ctx.font = '600 28px Outfit, sans-serif';
+      ctx.fillText(EVENT.brand, cx, PHOTO.y + 192);
+      ctx.font = '600 20px Outfit, sans-serif';
       ctx.fillStyle = PASTEL_BLUE;
-      ctx.fillText(EVENT.tagline, cx, CARD.y + 424);
+      ctx.fillText(EVENT.tagline, cx, PHOTO.y + 226);
       ctx.restore();
     }
 
     // name
-    const p3 = progressBetween(t, 0.42, 0.6);
+    const p3 = progressBetween(t, 0.5, 0.66);
     if (p3 > 0) {
       ctx.save();
       ctx.globalAlpha = easeOutCubic(p3);
-      ctx.translate(0, (1 - easeOutCubic(p3)) * 16);
-      ctx.font = '600 24px Outfit, sans-serif';
+      ctx.translate(0, (1 - easeOutCubic(p3)) * 14);
+      ctx.font = '600 20px Outfit, sans-serif';
       ctx.fillStyle = 'rgba(232,217,187,0.75)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(EVENT.forLabel, cx, CARD.y + 500);
+      ctx.fillText(EVENT.forLabel, cx, PHOTO.y + 300);
 
       let displayName = window.__inviteName || 'you';
-      ctx.font = '800 52px Outfit, sans-serif';
+      ctx.font = '800 40px Outfit, sans-serif';
       let nameWidth = ctx.measureText(displayName).width;
-      const maxNameWidth = CARD.w - 100;
-      let fontSize = 52;
-      while (nameWidth > maxNameWidth && fontSize > 28) {
+      const maxNameWidth = PHOTO.w - 50;
+      let fontSize = 40;
+      while (nameWidth > maxNameWidth && fontSize > 22) {
         fontSize -= 2;
         ctx.font = `800 ${fontSize}px Outfit, sans-serif`;
         nameWidth = ctx.measureText(displayName).width;
       }
       ctx.fillStyle = CARD_BEIGE;
-      ctx.fillText(`${displayName} 💕`, cx, CARD.y + 555);
+      ctx.fillText(`${displayName} 💕`, cx, PHOTO.y + 344);
       ctx.restore();
     }
 
     // date/time
-    const p4 = progressBetween(t, 0.58, 0.74);
+    const p4 = progressBetween(t, 0.64, 0.78);
     if (p4 > 0) {
       const alpha = easeOutCubic(p4);
-      const ty = (1 - alpha) * 14;
+      const ty = (1 - alpha) * 12;
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.translate(0, ty);
-      ctx.font = '700 30px Outfit, sans-serif';
+      ctx.font = '700 23px Outfit, sans-serif';
       ctx.fillStyle = CARD_BEIGE;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`🕓  ${EVENT.time}   ·   ${EVENT.date}`, cx, CARD.y + 668);
+      ctx.fillText(`🕓  ${EVENT.time}   ·   ${EVENT.date}`, cx, PHOTO.y + 424);
       ctx.restore();
     }
 
     // address
-    const p5 = progressBetween(t, 0.7, 0.88);
+    const p5 = progressBetween(t, 0.74, 0.88);
     if (p5 > 0) {
       const alpha = easeOutCubic(p5);
-      const ty = (1 - alpha) * 14;
+      const ty = (1 - alpha) * 12;
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.translate(0, ty);
-      ctx.font = '700 26px Outfit, sans-serif';
+      ctx.font = '700 19px Outfit, sans-serif';
       ctx.fillStyle = CARD_BEIGE;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const maxTextWidth = CARD.w - 180;
+      const maxTextWidth = PHOTO.w - 60;
       const lines = wrapLines('📍 ' + EVENT.address, maxTextWidth);
-      const lineH = 38;
-      const startY = CARD.y + 748 - ((lines.length - 1) * lineH) / 2;
+      const lineH = 27;
+      const startY = PHOTO.y + 496;
       lines.forEach((line, i) => {
         ctx.fillText(line, cx, startY + i * lineH);
       });
       ctx.restore();
     }
 
-    // footer note
+    ctx.restore(); // photo window clip
+
+    // caption strip (handwritten note under the photo)
     const p6 = progressBetween(t, 0.86, 1.0);
     if (p6 > 0) {
       ctx.save();
       ctx.globalAlpha = easeOutCubic(p6);
-      ctx.font = '600 24px Outfit, sans-serif';
-      ctx.fillStyle = PASTEL_BLUE;
+      ctx.font = '600 26px Outfit, sans-serif';
+      ctx.fillStyle = CARD_RED;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(EVENT.footer, cx, CARD.y + CARD.h - 56);
+      ctx.fillText(EVENT.footer, CAPTION.x + CAPTION.w / 2, CAPTION.y + CAPTION.h / 2);
       ctx.restore();
+
+      // bow + wax seal accents
+      const a = easeOutBack(p6);
+      drawBow(POLA.x - 6, POLA.y + POLA.h * 0.42, 0.6 * a, -0.35, PASTEL_BLUE);
+      drawSeal(POLA.x + POLA.w + 4, POLA.y + POLA.h - 40, 30 * clamp01(a), CARD_RED, CREAM);
     }
 
-    ctx.restore(); // clip
+    ctx.restore(); // card clip
   }
 
   function stepConfetti(dt) {
