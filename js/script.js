@@ -33,6 +33,7 @@
   const videoProgress = document.getElementById('videoProgress');
   const resetBtn = document.getElementById('resetBtn');
   const closeBtn = document.getElementById('closeBtn');
+  const saveVideoLabel = document.getElementById('saveVideoLabel');
 
   // ============ helpers ============
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -426,7 +427,7 @@
         nameWidth = ctx.measureText(displayName).width;
       }
       ctx.fillStyle = CARD_BEIGE;
-      ctx.fillText(`${displayName} 💕`, cx, PHOTO.y + 396 * S);
+      ctx.fillText(displayName, cx, PHOTO.y + 396 * S);
       ctx.restore();
     }
 
@@ -558,6 +559,24 @@
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
 
+  // Prefers the native share sheet (reliable "Save to Photos/Files" on
+  // mobile, where a plain <a download> blob link is often silently ignored)
+  // and falls back to a direct download link everywhere else.
+  async function saveBlob(blob, filename, mimeType) {
+    try {
+      if (navigator.canShare && navigator.share) {
+        const file = new File([blob], filename, { type: mimeType });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          return;
+        }
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // user dismissed the sheet
+    }
+    downloadBlob(blob, filename);
+  }
+
   function safeFileSlug(name) {
     return (name || 'you')
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -588,6 +607,9 @@
     cardOverlay.hidden = true;
     modalOpen = false;
     chatScreen.classList.remove('is-dimmed');
+    pendingVideo = null;
+    saveVideoLabel.textContent = 'Save Video';
+    videoProgress.hidden = true;
   }
 
   let resizeTimer = null;
@@ -622,12 +644,33 @@
     if (saveImageBtn.disabled) return;
     canvas.toBlob((blob) => {
       if (!blob) return;
-      downloadBlob(blob, `OO-Polaroid-Invite-${safeFileSlug(window.__inviteName)}.png`);
+      saveBlob(blob, `OO-Polaroid-Invite-${safeFileSlug(window.__inviteName)}.png`, 'image/png');
     }, 'image/png');
   });
 
+  // Recording needs the reveal to replay in full (~5s), and by the time it's
+  // done the original click's "user activation" has expired in most
+  // browsers — calling the share sheet after that async wait fails silently
+  // on mobile. So step 1 just records, and step 2 (a fresh tap) does the
+  // actual save/share, keeping it inside a real user gesture.
+  let pendingVideo = null;
+
   saveVideoBtn.addEventListener('click', async () => {
     if (saveVideoBtn.disabled) return;
+
+    if (pendingVideo) {
+      const { blob, mimeType } = pendingVideo;
+      pendingVideo = null;
+      saveVideoLabel.textContent = 'Save Video';
+      videoProgress.hidden = false;
+      videoProgress.textContent = 'Saving...';
+      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      await saveBlob(blob, `OO-Polaroid-Invite-${safeFileSlug(window.__inviteName)}.${ext}`, mimeType);
+      videoProgress.textContent = 'Saved! 🎉';
+      setTimeout(() => { videoProgress.hidden = true; }, 2200);
+      return;
+    }
+
     saveVideoBtn.disabled = true;
     saveImageBtn.disabled = true;
     videoProgress.hidden = false;
@@ -636,15 +679,15 @@
     const { blob, mimeType } = await playReveal({ record: true });
 
     if (blob && blob.size) {
-      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-      downloadBlob(blob, `OO-Polaroid-Invite-${safeFileSlug(window.__inviteName)}.${ext}`);
-      videoProgress.textContent = 'Saved! 🎉';
+      pendingVideo = { blob, mimeType };
+      saveVideoLabel.textContent = 'Tap to Save 👆';
+      videoProgress.textContent = 'Video ready!';
+      saveVideoBtn.disabled = false;
     } else {
       videoProgress.textContent = "Can't record here — try Save Image instead.";
+      setTimeout(() => { videoProgress.hidden = true; }, 3200);
     }
-    saveVideoBtn.disabled = false;
     saveImageBtn.disabled = false;
-    setTimeout(() => { videoProgress.hidden = true; }, 3200);
   });
 
   resetBtn.addEventListener('click', () => {
